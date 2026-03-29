@@ -1,0 +1,72 @@
+name: Daily Tweet Bot
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+      timezone: "Asia/Kolkata"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-tweet-bot
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tweet bot
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+          AI_PROVIDER: openai
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_TEXT_MODEL: gpt-4.1-mini
+          OPENAI_IMAGE_MODEL: gpt-image-1
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TEXT_MODEL: gemini-2.0-flash
+          APP_NAME: Auditor AI
+          APP_URL: https://auditor-ai-git-main-lucys-projects-d362fb4f.vercel.app/
+          APP_TAGLINE: AI-powered auditing and insights for SaaS teams
+          TONE: helpful, credible, concise
+          TARGET_AUDIENCE: founders, indie hackers, and product teams
+          CTA: Try it free today
+          HASHTAGS: "#SaaS #AI #Startup"
+          HISTORY_WINDOW: "25"
+          HISTORY_FILE: tweet_history.json
+          DRY_RUN: "false"
+          ENABLE_IMAGE: "false"
+          TIMEZONE: Asia/Kolkata
+        run: python tweet_bot.py
+
+      - name: Commit updated tweet history
+        run: |
+          if git diff --quiet -- tweet_history.json; then
+            echo "No history changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tweet_history.json
+          git commit -m "Update tweet history"
+          git push
